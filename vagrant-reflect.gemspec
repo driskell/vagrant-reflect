@@ -15,5 +15,5 @@ Gem::Specification.new do |gem|
   gem.require_paths     = ['lib']
   gem.files             = Dir['{lib,templates}/**/*']
 
-  gem.add_runtime_dependency 'driskell-listen', '~>3.0.6.8'
+  gem.add_runtime_dependency 'driskell-listen', '~>3.0.6.9'
 end
