@@ -6,7 +6,7 @@ require 'vagrant/action/builtin/mixin_synced_folders'
 require 'vagrant/util/busy'
 require 'vagrant/util/platform'
 
-require_relative '../helper'
+require_relative '../util/syncer'
 
 require 'driskell-listen'
 
@@ -74,29 +74,25 @@ module VagrantReflect
           folders = cached[:rsync]
           next if !folders || folders.empty?
 
-          # Get the SSH info for this machine so we can do an initial
-          # sync to the VM.
-          ssh_info = machine.ssh_info
-          if ssh_info
-            machine.ui.info(
-              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_initial'))
-            folders.each do |_, folder_opts|
-              SyncHelper.sync_single(machine, ssh_info, folder_opts)
-            end
-          end
-
           folders.each do |id, folder_opts|
             # If we marked this folder to not auto sync, then
             # don't do it.
             next if folder_opts.key?(:auto) && !folder_opts[:auto]
 
+            syncer = Syncer.new(machine, folder_opts)
+
+            machine.ui.info(
+              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_initial'))
+            syncer.sync_full
+
             hostpath = folder_opts[:hostpath]
             hostpath = File.expand_path(hostpath, machine.env.root_path)
             paths[hostpath] ||= []
             paths[hostpath] << {
-              id: id,
+              id:      id,
               machine: machine,
-              opts:    folder_opts
+              opts:    folder_opts,
+              syncer:  syncer
             }
           end
         end
@@ -127,7 +123,7 @@ module VagrantReflect
             next unless path_opts[:exclude]
 
             Array(path_opts[:exclude]).each do |pattern|
-              ignores << SyncHelper.exclude_to_regexp(hostpath, pattern.to_s)
+              ignores << Syncer.exclude_to_regexp(hostpath, pattern.to_s)
             end
           end
 
@@ -171,13 +167,6 @@ module VagrantReflect
 
         # Perform the sync for each machine
         opts.each do |path_opts|
-          # Reload so we get the latest ID
-          path_opts[:machine].reload
-          if !path_opts[:machine].id || path_opts[:machine].id == ''
-            # Skip since we can't get SSH info without an ID
-            next
-          end
-
           begin
             # If we have any removals or have disabled incremental, perform a
             # single full sync
@@ -185,25 +174,33 @@ module VagrantReflect
             if !options[:incremental] || !removed.empty?
               removed.each do |remove|
                 path_opts[:machine].ui.info(
-                  I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_remove',
-                         path: remove))
+                  I18n.t(
+                    'vagrant.plugins.vagrant-reflect.rsync_auto_full_remove',
+                    path: strip_path(path, remove)))
               end
 
               [modified, added].each do |changes|
                 changes.each do |change|
                   path_opts[:machine].ui.info(
-                    I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_change',
-                           path: change))
+                    I18n.t(
+                      'vagrant.plugins.vagrant-reflect.rsync_auto_full_change',
+                      path: strip_path(path, change)))
                 end
               end
 
-              SyncHelper.sync_single(
-                path_opts[:machine],
-                path_opts[:machine].ssh_info,
-                path_opts[:opts]
-              )
+              path_opts[:machine].ui.info(
+                I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_full'))
+
+              path_opts[:syncer].sync_full
             elsif !modified.empty? || !added.empty?
-              synchronize_changes(path, path_opts, options, [modified, added])
+              # Pass the list of changes to rsync so we quickly synchronise only
+              # the changed files instead of the whole folder
+              items = strip_paths(path, modified + added)
+              path_opts[:syncer].sync_incremental(items) do |item|
+                path_opts[:machine].ui.info(
+                  I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment',
+                         path: item))
+              end
             end
 
             path_opts[:machine].ui.info(
@@ -215,70 +212,19 @@ module VagrantReflect
               I18n.t('vagrant.plugins.vagrant-reflect.'\
                      'rsync_communicator_not_ready_callback'))
           rescue Vagrant::Errors::VagrantError => e
-            path_opts[:machine].ui.error(e)
+            path_opts[:machine].ui.error(e.message)
           end
         end
       end
 
-      # Helper to pull the next change from a set of changes of the form
-      # [ set1, set2, set3 ]
-      # Sets are removed as they are emptied
-      def next_change(sets, path)
-        line = sets[0].pop
-        sets.shift while !sets.empty? && sets[0].empty?
-        line[path.length..line.length] + "\n"
+      def strip_paths(path, items)
+        items.map do |item|
+          item[path.length..item.length]
+        end
       end
 
-      def synchronize_changes(path, path_opts, options, sets)
-        # Grab the first change
-        sets.shift while sets[0].empty?
-        line = false
-
-        # Pass the list of changes to rsync so we quickly synchronise only
-        # the changed files instead of the whole folder
-        SyncHelper.sync_single(
-          path_opts[:machine],
-          path_opts[:machine].ssh_info,
-          path_opts[:opts].merge(from_stdin: true)
-        ) do |what, io|
-          next if what != :stdin
-
-          if line.nil?
-            io.close_write
-            next
-          end
-
-          begin
-            loop do
-              # If we don't have a line, grab one and print it
-              unless line
-                line = next_change(sets, path)
-                path_opts[:machine].ui.info(
-                  I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment',
-                         path: line))
-              end
-
-              # Handle partial writes
-              n = io.write_nonblock(line)
-              if n < line.length
-                line = line[n..line.length]
-                break
-              end
-
-              # When we've finished giving rsync the file list, set line to nil
-              # and return - on the next notify we will EOT stdin
-              if sets.empty?
-                line = nil
-                break
-              end
-
-              # Request a new line for next write
-              line = false
-            end
-          rescue IO::WaitWritable, Errno::EINTR
-            # Ignore
-          end
-        end
+      def strip_path(path, item)
+        item[path.length..item.length]
       end
     end
   end

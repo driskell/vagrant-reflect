@@ -16,20 +16,20 @@ en:
           Watching: %{path}
         rsync_auto_increment: |-
           Sending change: %{path}
-        rsync_auto_change: |-
+        rsync_auto_full_change: |-
           Processing change: %{path}
-        rsync_auto_remove: |-
+        rsync_auto_full_remove: |-
           Processing removal: %{path}
+        rsync_auto_full: |-
+          Performing full synchronisation due to removals
         rsync_auto_synced: |-
           Synchronization completed
         rsync_communicator_not_ready_callback: |-
           Failed to connect to remote machine. This is usually caused by the
           machine rebooting or being halted. Please make sure the machine is
           running, and modify a file to try again.
-        rsync_folder: |-
-          Rsyncing folder: %{hostpath} => %{guestpath}
-        rsync_folder_changes: |-
-          Rsyncing changes only: %{hostpath} => %{guestpath}
+        rsync_folder_configuration: |-
+          Configuring rsync: %{hostpath} => %{guestpath}
         rsync_folder_excludes: "  - Exclude: %{excludes}"
         rsync_proxy_machine: |-
           The provider ('%{provider}') for the machine '%{name}' is
