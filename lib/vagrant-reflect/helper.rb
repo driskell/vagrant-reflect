@@ -1,10 +1,11 @@
 require 'vagrant/util/platform'
-require 'vagrant/util/subprocess'
 
-module VagrantSync
+require_relative 'patched/subprocess'
+
+module VagrantReflect
   # This is a helper that abstracts out the functionality of rsyncing
   # folders so that it can be called from anywhere.
-  class RsyncHelper
+  class SyncHelper
     # This converts an rsync exclude pattern to a regular expression
     # we can send to Listen.
     def self.exclude_to_regexp(path, exclude)
@@ -30,7 +31,7 @@ module VagrantSync
       Regexp.new(regexp)
     end
 
-    def self.rsync_single(machine, ssh_info, opts, &block)
+    def self.sync_single(machine, ssh_info, opts, &block)
       # Folder info
       guestpath = opts[:guestpath]
       hostpath  = opts[:hostpath]
@@ -126,20 +127,20 @@ module VagrantSync
       if opts[:from_stdin] && block_given?
         machine.ui.info(
           I18n.t(
-            'vagrant.plugins.vagrant_sync.rsync_folder_changes',
+            'vagrant.plugins.vagrant-reflect.rsync_folder_changes',
             guestpath: guestpath,
             hostpath: hostpath))
       else
         machine.ui.info(
           I18n.t(
-            'vagrant.plugins.vagrant_sync.rsync_folder',
+            'vagrant.plugins.vagrant-reflect.rsync_folder',
             guestpath: guestpath,
             hostpath: hostpath))
       end
       if excludes.length > 1
         machine.ui.info(
           I18n.t(
-            'vagrant.plugins.vagrant_sync.rsync_folder_excludes',
+            'vagrant.plugins.vagrant-reflect.rsync_folder_excludes',
             excludes: excludes.inspect))
       end
 
@@ -148,7 +149,7 @@ module VagrantSync
         machine.guest.capability(:rsync_pre, opts)
       end
 
-      r = Vagrant::Util::Subprocess.execute(*(command + [command_opts]), &block)
+      r = Vagrant::Util::SubprocessPatched.execute(*(command + [command_opts]), &block)
       if r.exit_code != 0
         raise Vagrant::Errors::RSyncError,
               command: command.join(' '),

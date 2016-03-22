@@ -1,7 +1,7 @@
 en:
   vagrant:
     plugins:
-      vagrant_sync:
+      vagrant-reflect:
         rsync_auto_initial: |-
           Doing an initial rsync...
         rsync_auto_new_folders: |-

@@ -5,27 +5,24 @@ if File.directory? '.git'
     `git describe | sed 's/-\([0-9][0-9]*\)-\([0-9a-z][0-9a-z]*\)$/-\1.\2/g'`
   version.sub!(/^v/, '')
 else
-  version = IO.read 'version.txt'
+  version = ''
 end
+version = IO.read 'version.txt' if version == ''
 
 version.chomp!
 
 Gem::Specification.new do |gem|
-  gem.name              = 'vagrant-sync'
+  gem.name              = 'vagrant-reflect'
   gem.version           = version
-  gem.description       = 'Vagrant Sync'
+  gem.description       = 'Vagrant Reflect'
   gem.summary           = 'A better vagrant rsync-auto'
-  gem.homepage          = 'https://github.com/driskell/vagrant-sync'
+  gem.homepage          = 'https://github.com/driskell/vagrant-reflect'
   gem.authors           = ['Jason Woods']
   gem.email             = ['devel@jasonwoods.me.uk']
   gem.licenses          = ['Apache']
   gem.rubyforge_project = 'nowarning'
   gem.require_paths     = ['lib']
-  # gem.files             = %w(
-  #   lib/logstash/inputs/courier.rb
-  # )
+  gem.files             = Dir['{lib,templates}/**/*']
 
-  gem.group = 'plugins'
-
-  gem.add_runtime_dependency 'driskell-listen', '~>3.0.6'
+  gem.add_runtime_dependency 'driskell-listen', '~>3.0.6.6'
 end

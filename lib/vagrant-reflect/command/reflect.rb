@@ -8,13 +8,11 @@ require 'vagrant/util/platform'
 
 require_relative '../helper'
 
-module Driskell
-  require 'driskell-listen'
-end
+require 'driskell-listen'
 
-module VagrantSync
+module VagrantReflect
   module Command
-    class RsyncAuto < Vagrant.plugin('2', :command)
+    class Reflect < Vagrant.plugin('2', :command)
       include Vagrant::Action::Builtin::MixinSyncedFolders
 
       def self.synopsis
@@ -22,14 +20,14 @@ module VagrantSync
       end
 
       def execute
-        @logger = Log4r::Logger.new('vagrant::commands::sync-auto')
+        @logger = Log4r::Logger.new('vagrant::commands::reflect')
 
         options = {
           poll:        false,
           incremental: true
         }
         opts = OptionParser.new do |o|
-          o.banner = 'Usage: vagrant sync-auto [vm-name]'
+          o.banner = 'Usage: vagrant reflect [vm-name]'
           o.separator ''
           o.separator 'Options:'
           o.separator ''
@@ -57,7 +55,7 @@ module VagrantSync
             if proxy
               machine.ui.warn(
                 I18n.t(
-                  'vagrant.plugins.vagrant_sync.rsync_proxy_machine',
+                  'vagrant.plugins.vagrant-reflect.rsync_proxy_machine',
                   name: machine.name.to_s,
                   provider: machine.provider_name.to_s))
 
@@ -70,7 +68,7 @@ module VagrantSync
           diff   = synced_folders_diff(cached, fresh)
           unless diff[:added].empty?
             machine.ui.warn(
-              I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_new_folders'))
+              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_new_folders'))
           end
 
           folders = cached[:rsync]
@@ -81,9 +79,9 @@ module VagrantSync
           ssh_info = machine.ssh_info
           if ssh_info
             machine.ui.info(
-              I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_initial'))
+              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_initial'))
             folders.each do |_, folder_opts|
-              RsyncHelper.rsync_single(machine, ssh_info, folder_opts)
+              SyncHelper.sync_single(machine, ssh_info, folder_opts)
             end
           end
 
@@ -106,7 +104,7 @@ module VagrantSync
         # Exit immediately if there is nothing to watch
         if paths.empty?
           @env.ui.info(
-            I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_no_paths'))
+            I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_no_paths'))
           return 1
         end
 
@@ -123,13 +121,13 @@ module VagrantSync
           opts.each do |path_opts|
             path_opts[:machine].ui.info(
               I18n.t(
-                'vagrant.plugins.vagrant_sync.rsync_auto_path',
+                'vagrant.plugins.vagrant-reflect.rsync_auto_path',
                 path: path.to_s))
 
             next unless path_opts[:exclude]
 
             Array(path_opts[:exclude]).each do |pattern|
-              ignores << RsyncHelper.exclude_to_regexp(hostpath, pattern.to_s)
+              ignores << SyncHelper.exclude_to_regexp(hostpath, pattern.to_s)
             end
           end
 
@@ -157,7 +155,7 @@ module VagrantSync
           listeners.each(&:start)
           queue.pop
           listeners.each do |listener|
-            listener.stop if listener.listen?
+            listener.stop if listener.state != :stopped
           end
         end
 
@@ -187,19 +185,19 @@ module VagrantSync
             if !options[:incremental] || !removed.empty?
               removed.each do |remove|
                 path_opts[:machine].ui.info(
-                  I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_remove',
+                  I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_remove',
                          path: remove))
               end
 
               [modified, added].each do |changes|
                 changes.each do |change|
                   path_opts[:machine].ui.info(
-                    I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_change',
+                    I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_change',
                            path: change))
                 end
               end
 
-              RsyncHelper.rsync_single(
+              SyncHelper.sync_single(
                 path_opts[:machine],
                 path_opts[:machine].ssh_info,
                 path_opts[:opts]
@@ -209,12 +207,12 @@ module VagrantSync
             end
 
             path_opts[:machine].ui.info(
-              I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_synced'))
+              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_synced'))
           rescue Vagrant::Errors::MachineGuestNotReady
             # Error communicating to the machine, probably a reload or
             # halt is happening. Just notify the user but don't fail out.
             path_opts[:machine].ui.error(
-              I18n.t('vagrant.plugins.vagrant_sync.'\
+              I18n.t('vagrant.plugins.vagrant-reflect.'\
                      'rsync_communicator_not_ready_callback'))
           rescue Vagrant::Errors::VagrantError => e
             path_opts[:machine].ui.error(e)
@@ -238,7 +236,7 @@ module VagrantSync
 
         # Pass the list of changes to rsync so we quickly synchronise only
         # the changed files instead of the whole folder
-        RsyncHelper.rsync_single(
+        SyncHelper.sync_single(
           path_opts[:machine],
           path_opts[:machine].ssh_info,
           path_opts[:opts].merge(from_stdin: true)
@@ -246,7 +244,7 @@ module VagrantSync
           next if what != :stdin
 
           if line.nil?
-            io.close
+            io.close_write
             next
           end
 
@@ -256,7 +254,7 @@ module VagrantSync
               unless line
                 line = next_change(sets, path)
                 path_opts[:machine].ui.info(
-                  I18n.t('vagrant.plugins.vagrant_sync.rsync_auto_increment',
+                  I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment',
                          path: line))
               end
 
@@ -268,7 +266,7 @@ module VagrantSync
               end
 
               # When we've finished giving rsync the file list, set line to nil
-              # and return - on the next notify we will close stdin
+              # and return - on the next notify we will EOT stdin
               if sets.empty?
                 line = nil
                 break
