@@ -27,5 +27,5 @@ Vagrant.configure('2') do |config|
     rsync__args:
       ['--verbose', '--archive', '--delete', '-z', '--copy-links',
        '--hard-links'],
-    rsync__exclude: ['.git'])
+    rsync__exclude: ['.git', 'vendor'])
 end
