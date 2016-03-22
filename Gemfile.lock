@@ -24,7 +24,7 @@ PATH
   remote: .
   specs:
     vagrant-reflect (0.1.0)
-      driskell-listen (~> 3.0.6.7)
+      driskell-listen (~> 3.0.6.8)
 
 GEM
   remote: https://rubygems.org/
@@ -35,7 +35,7 @@ GEM
       ffi (~> 1.0, >= 1.0.11)
     domain_name (0.5.20160310)
       unf (>= 0.0.5, < 1.0.0)
-    driskell-listen (3.0.6.7)
+    driskell-listen (3.0.6.8)
       rb-fsevent (>= 0.9.3)
       rb-inotify (>= 0.9.7)
     erubis (2.7.0)

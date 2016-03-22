@@ -1,19 +1,10 @@
-# Pull version from git if we're cloned (git command sure to exist)
-# Otherwise, if in an archive, use version.txt, which is the last stable version
-if File.directory? '.git'
-  version = \
-    `git describe | sed 's/-\([0-9][0-9]*\)-\([0-9a-z][0-9a-z]*\)$/-\1.\2/g'`
-  version.sub!(/^v/, '')
-else
-  version = ''
-end
-version = IO.read 'version.txt' if version == ''
-
-version.chomp!
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'vagrant-reflect/version'
 
 Gem::Specification.new do |gem|
   gem.name              = 'vagrant-reflect'
-  gem.version           = version
+  gem.version           = VagrantReflect::VERSION
   gem.description       = 'Vagrant Reflect'
   gem.summary           = 'A better vagrant rsync-auto'
   gem.homepage          = 'https://github.com/driskell/vagrant-reflect'
