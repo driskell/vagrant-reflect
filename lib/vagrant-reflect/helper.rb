@@ -159,9 +159,11 @@ module VagrantReflect
       end
 
       # If we have tasks to do after rsyncing, do those.
-      if machine.guest.capability?(:rsync_post)
-        machine.guest.capability(:rsync_post, opts)
-      end
+      # REMOVE THESE - it triggers for VirtualBox an expensive find command that
+      # changes ownership, but we don't believe this is necessary
+      # if machine.guest.capability?(:rsync_post)
+      #   machine.guest.capability(:rsync_post, opts)
+      # end
     end
   end
 end
