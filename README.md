@@ -5,6 +5,7 @@
 Vagrant Reflect offers an extremely fast and highly optimised rsync-auto replacement for developers using Vagrant and Rsync with very large repositories.
 
 ```
+$ vagrant reflect
 ==> default: Configuring rsync: /Users/Jason/Documents/Projects/vagrant-reflect/ => /vagrant
 ==> default:   - Exclude: [".git", "vendor", ".vagrant/"]
 ==> default: Doing an initial rsync...
