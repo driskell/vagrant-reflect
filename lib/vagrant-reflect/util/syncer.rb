@@ -6,42 +6,6 @@ module VagrantReflect
   # This is a helper that abstracts out the functionality of rsyncing
   # folders so that it can be called from anywhere.
   class Syncer
-    # This converts an rsync exclude pattern to a regular expression
-    # we can send to Listen.
-    def self.exclude_to_regexp(exclude)
-      start_anchor = false
-      dir_only = false
-
-      if exclude.start_with?('/')
-        start_anchor = true
-        exclude      = exclude[1..-1]
-      end
-
-      if exclude.end_with?('/')
-        dir_only = true
-        exclude      = exclude[0..-2]
-      end
-
-      regexp = start_anchor ? '^' : '(?:^|/)'
-
-      # This is REALLY ghetto, but its a start. We can improve and
-      # keep unit tests passing in the future.
-      # TODO: Escaped wildcards get substituted incorrectly - replace with FSM?
-      exclude = exclude.gsub('.', '\\.')
-      exclude = exclude.gsub('***', '|||EMPTY|||')
-      exclude = exclude.gsub('**', '|||GLOBAL|||')
-      exclude = exclude.gsub('*', '|||PATH|||')
-      exclude = exclude.gsub('?', '[^/]')
-      exclude = exclude.gsub('|||PATH|||', '[^/]+')
-      exclude = exclude.gsub('|||GLOBAL|||', '.+')
-      exclude = exclude.gsub('|||EMPTY|||', '.*')
-      regexp += exclude
-
-      regexp += dir_only ? '/' : '(?:/|$)'
-
-      Regexp.new(regexp)
-    end
-
     def initialize(machine, opts)
       @opts = opts
       @machine = machine
@@ -65,27 +29,32 @@ module VagrantReflect
       # Connection information
       username = @machine.ssh_info[:username]
       host     = @machine.ssh_info[:host]
-      proxy_command = ''
+      proxy_command = []
       if @machine.ssh_info[:proxy_command]
-        proxy_command = "-o ProxyCommand='#{@machine.ssh_info[:proxy_command]}' "
+        proxy_command += [
+          '-o',
+          "ProxyCommand='#{@machine.ssh_info[:proxy_command]}'"
+        ]
       end
 
-      rsh = [
-        "ssh -p #{@machine.ssh_info[:port]} " +
-          proxy_command +
-          '-o StrictHostKeyChecking=no '\
-          '-o IdentitiesOnly=true '\
-          '-o UserKnownHostsFile=/dev/null',
-        @machine.ssh_info[:private_key_path].map { |p| "-i '#{p}'" }
-      ].flatten.join(' ')
+      @rsh = [
+        'ssh',
+        '-p', @machine.ssh_info[:port].to_s,
+        proxy_command,
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'IdentitiesOnly=true',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        @machine.ssh_info[:private_key_path].map { |p| ['-i', p] }
+      ].flatten
 
-      @target = "#{username}@#{host}:#{@guestpath}"
+      @remote = "#{username}@#{host}"
+      @target = "#{@remote}:#{@guestpath}"
 
       # Exclude some files by default, and any that might be configured
       # by the user.
-      excludes = []
-      excludes += Array(@opts[:exclude]).map(&:to_s) if @opts[:exclude]
-      excludes.uniq!
+      @excludes = []
+      @excludes += Array(@opts[:exclude]).map(&:to_s) if @opts[:exclude]
+      @excludes.uniq!
 
       # Get the command-line arguments
       @command = ['rsync']
@@ -115,28 +84,32 @@ module VagrantReflect
       @command << '--no-group' unless
         @command.include?('--group') || @command.include?('-g')
 
-      # Tell local rsync how to invoke remote rsync with sudo
-      if @machine.guest.capability?(:rsync_command)
-        @command << '--rsync-path' << @machine.guest.capability(:rsync_command)
-      end
-
       @command += [
-        '-e', rsh
+        '-e', @rsh.join(' ')
       ]
 
-      excludes.map { |e| @command += ['--exclude', e] }
+      @excludes.map { |e| @command += ['--exclude', e] }
 
       machine.ui.info(
         I18n.t(
           'vagrant.plugins.vagrant-reflect.rsync_folder_configuration',
           guestpath: @guestpath,
           hostpath: @hostpath))
-      if excludes.length > 1
+
+      if @excludes.length > 1
         machine.ui.info(
           I18n.t(
             'vagrant.plugins.vagrant-reflect.rsync_folder_excludes',
-            excludes: excludes.inspect))
+            excludes: @excludes.inspect))
       end
+    end
+
+    # This converts the rsync exclude patterns to regular expressions we can
+    # send to Listen.
+    def excludes_to_regexp
+      return @regexp if @regexp
+
+      @regexp = @excludes.map(&method(:exclude_to_regex_single))
     end
 
     def sync_incremental(items, &block)
@@ -150,14 +123,7 @@ module VagrantReflect
         }
       ]
 
-      current = false
-      r = Vagrant::Util::SubprocessPatched.execute(*command) do |what, io|
-        next if what != :stdin
-
-        current = process_items(io, items, current, &block)
-      end
-
-      check_exit command, r
+      send_items_to_command items, command, &block
     end
 
     def sync_full
@@ -170,11 +136,61 @@ module VagrantReflect
       ]
 
       r = Vagrant::Util::SubprocessPatched.execute(*command)
-
       check_exit command, r
     end
 
+    def sync_removals(items, &block)
+      command = @rsh.dup + [
+        @remote,
+        'xargs rm -f',
+        {
+          workdir: @workdir,
+          notify: :stdin
+        }
+      ]
+
+      # Look for removed directories and fill in guest paths
+      dirs = {}
+      items.map! do |rel_path|
+        parent = rel_path
+        loop do
+          parent = File.dirname(parent)
+          break if parent == '/'
+          unless File.exist?(@hostpath + parent) || dirs.key?(parent)
+            dirs[parent] = @guestpath + parent
+          end
+        end
+        @guestpath + rel_path
+      end
+
+      send_items_to_command items, command, &block
+      sync_removals_parents dirs.values, &block unless dirs.empty?
+    end
+
+    def sync_removals_parents(guest_items, &block)
+      command = @rsh.dup + [
+        @remote,
+        'xargs rmdir',
+        {
+          workdir: @workdir,
+          notify: :stdin
+        }
+      ]
+
+      send_items_to_command guest_items, command, &block
+    end
+
     protected
+
+    def send_items_to_command(items, command, &block)
+      current = false
+      r = Vagrant::Util::SubprocessPatched.execute(*command) do |what, io|
+        next if what != :stdin
+
+        current = process_items(io, items, current, &block)
+      end
+      check_exit command, r
+    end
 
     def process_items(io, items, current, &block)
       until items.empty?
@@ -209,6 +225,40 @@ module VagrantReflect
             guestpath: @guestpath,
             hostpath: @hostpath,
             stderr: r.stderr
+    end
+
+    def exclude_to_regex_single(exclude)
+      start_anchor = false
+      dir_only = false
+
+      if exclude.start_with?('/')
+        start_anchor = true
+        exclude      = exclude[1..-1]
+      end
+
+      if exclude.end_with?('/')
+        dir_only = true
+        exclude      = exclude[0..-2]
+      end
+
+      regexp = start_anchor ? '^' : '(?:^|/)'
+
+      # This is REALLY ghetto, but its a start. We can improve and
+      # keep unit tests passing in the future.
+      # TODO: Escaped wildcards get substituted incorrectly - replace with FSM?
+      exclude = exclude.gsub('.', '\\.')
+      exclude = exclude.gsub('***', '|||EMPTY|||')
+      exclude = exclude.gsub('**', '|||GLOBAL|||')
+      exclude = exclude.gsub('*', '|||PATH|||')
+      exclude = exclude.gsub('?', '[^/]')
+      exclude = exclude.gsub('|||PATH|||', '[^/]+')
+      exclude = exclude.gsub('|||GLOBAL|||', '.+')
+      exclude = exclude.gsub('|||EMPTY|||', '.*')
+      regexp += exclude
+
+      regexp += dir_only ? '/' : '(?:/|$)'
+
+      Regexp.new(regexp)
     end
   end
 end

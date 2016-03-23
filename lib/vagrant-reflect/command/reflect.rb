@@ -120,16 +120,11 @@ module VagrantReflect
 
           ignores = []
           opts.each do |path_opts|
+            ignores += path_opts[:syncer].excludes_to_regexp
             path_opts[:machine].ui.info(
               I18n.t(
                 'vagrant.plugins.vagrant-reflect.rsync_auto_path',
                 path: path.to_s))
-
-            next unless path_opts[:opts][:exclude]
-
-            Array(path_opts[:opts][:exclude]).each do |pattern|
-              ignores << Syncer.exclude_to_regexp(pattern.to_s)
-            end
           end
 
           @logger.info("Listening to path: #{path}")
@@ -170,43 +165,13 @@ module VagrantReflect
         @logger.info("  - Added: #{added.inspect}")
         @logger.info("  - Removed: #{removed.inspect}")
 
+        callback = options[:incremental] ? :sync_incremental : :sync_full
+
         # Perform the sync for each machine
         opts.each do |path_opts|
           begin
-            # If we have any removals or have disabled incremental, perform a
-            # single full sync
-            # It's seemingly impossible to ask rsync to only do a deletion
-            if !options[:incremental] || !removed.empty?
-              removed.each do |remove|
-                path_opts[:machine].ui.info(
-                  I18n.t(
-                    'vagrant.plugins.vagrant-reflect.rsync_auto_full_remove',
-                    path: strip_path(path, remove)))
-              end
-
-              [modified, added].each do |changes|
-                changes.each do |change|
-                  path_opts[:machine].ui.info(
-                    I18n.t(
-                      'vagrant.plugins.vagrant-reflect.rsync_auto_full_change',
-                      path: strip_path(path, change)))
-                end
-              end
-
-              path_opts[:machine].ui.info(
-                I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_full'))
-
-              path_opts[:syncer].sync_full
-            elsif !modified.empty? || !added.empty?
-              # Pass the list of changes to rsync so we quickly synchronise only
-              # the changed files instead of the whole folder
-              items = strip_paths(path, modified + added)
-              path_opts[:syncer].sync_incremental(items) do |item|
-                path_opts[:machine].ui.info(
-                  I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment',
-                         path: item))
-              end
-            end
+            # If disabled incremental, do a full
+            send callback, path, path_opts, modified, added, removed
 
             path_opts[:machine].ui.info(
               I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_synced'))
@@ -219,6 +184,50 @@ module VagrantReflect
           rescue Vagrant::Errors::VagrantError => e
             path_opts[:machine].ui.error(e.message)
           end
+        end
+      end
+
+      def sync_full(path, path_opts, modified, added, removed)
+        [modified, added].flatten.each do |change|
+          path_opts[:machine].ui.info(
+            I18n.t(
+              'vagrant.plugins.vagrant-reflect.rsync_auto_full_change',
+              path: strip_path(path, change)))
+        end
+
+        removed.each do |remove|
+          path_opts[:machine].ui.info(
+            I18n.t(
+              'vagrant.plugins.vagrant-reflect.rsync_auto_full_remove',
+              path: strip_path(path, remove)))
+        end
+
+        path_opts[:machine].ui.info(
+          I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_full'))
+
+        path_opts[:syncer].sync_full
+      end
+
+      def sync_incremental(path, path_opts, modified, added, removed)
+        if !modified.empty? || !added.empty?
+          # Pass the list of changes to rsync so we quickly synchronise only
+          # the changed files instead of the whole folder
+          items = strip_paths(path, modified + added)
+          path_opts[:syncer].sync_incremental(items) do |item|
+            path_opts[:machine].ui.info(
+              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_change',
+                     path: item))
+          end
+        end
+
+        return if removed.empty?
+
+        # Pass list of changes to a remove command
+        items = strip_paths(path, removed)
+        path_opts[:syncer].sync_removals(items) do |item|
+          path_opts[:machine].ui.info(
+            I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_remove',
+                   path: item))
         end
       end
 
