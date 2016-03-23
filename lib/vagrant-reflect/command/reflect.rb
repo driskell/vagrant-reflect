@@ -79,6 +79,11 @@ module VagrantReflect
             # don't do it.
             next if folder_opts.key?(:auto) && !folder_opts[:auto]
 
+            # Push on .vagrant exclude
+            folder_opts = folder_opts.dup
+            folder_opts[:exclude] ||= []
+            folder_opts[:exclude] << '.vagrant/'
+
             syncer = Syncer.new(machine, folder_opts)
 
             machine.ui.info(
@@ -120,10 +125,10 @@ module VagrantReflect
                 'vagrant.plugins.vagrant-reflect.rsync_auto_path',
                 path: path.to_s))
 
-            next unless path_opts[:exclude]
+            next unless path_opts[:opts][:exclude]
 
-            Array(path_opts[:exclude]).each do |pattern|
-              ignores << Syncer.exclude_to_regexp(hostpath, pattern.to_s)
+            Array(path_opts[:opts][:exclude]).each do |pattern|
+              ignores << Syncer.exclude_to_regexp(pattern.to_s)
             end
           end
 
@@ -219,12 +224,12 @@ module VagrantReflect
 
       def strip_paths(path, items)
         items.map do |item|
-          item[path.length..item.length]
+          item[path.length..-1]
         end
       end
 
       def strip_path(path, item)
-        item[path.length..item.length]
+        item[path.length..-1]
       end
     end
   end

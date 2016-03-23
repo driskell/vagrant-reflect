@@ -8,25 +8,36 @@ module VagrantReflect
   class Syncer
     # This converts an rsync exclude pattern to a regular expression
     # we can send to Listen.
-    def self.exclude_to_regexp(path, exclude)
+    def self.exclude_to_regexp(exclude)
       start_anchor = false
+      dir_only = false
 
       if exclude.start_with?('/')
         start_anchor = true
         exclude      = exclude[1..-1]
       end
 
-      path   = "#{path}/" unless path.end_with?('/')
-      regexp = "^#{Regexp.escape(path)}"
-      regexp += '.*' unless start_anchor
+      if exclude.end_with?('/')
+        dir_only = true
+        exclude      = exclude[0..-2]
+      end
+
+      regexp = start_anchor ? '^' : '(?:^|/)'
 
       # This is REALLY ghetto, but its a start. We can improve and
       # keep unit tests passing in the future.
+      # TODO: Escaped wildcards get substituted incorrectly - replace with FSM?
+      exclude = exclude.gsub('.', '\\.')
+      exclude = exclude.gsub('***', '|||EMPTY|||')
       exclude = exclude.gsub('**', '|||GLOBAL|||')
       exclude = exclude.gsub('*', '|||PATH|||')
-      exclude = exclude.gsub('|||PATH|||', '[^/]*')
-      exclude = exclude.gsub('|||GLOBAL|||', '.*')
+      exclude = exclude.gsub('?', '[^/]')
+      exclude = exclude.gsub('|||PATH|||', '[^/]+')
+      exclude = exclude.gsub('|||GLOBAL|||', '.+')
+      exclude = exclude.gsub('|||EMPTY|||', '.*')
       regexp += exclude
+
+      regexp += dir_only ? '/' : '(?:/|$)'
 
       Regexp.new(regexp)
     end
@@ -72,7 +83,7 @@ module VagrantReflect
 
       # Exclude some files by default, and any that might be configured
       # by the user.
-      excludes = ['.vagrant/']
+      excludes = []
       excludes += Array(@opts[:exclude]).map(&:to_s) if @opts[:exclude]
       excludes.uniq!
 
