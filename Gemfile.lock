@@ -24,7 +24,7 @@ PATH
   remote: .
   specs:
     vagrant-reflect (0.4.0)
-      driskell-listen (~> 3.0.6.11)
+      driskell-listen (~> 3.0.6, >= 3.0.6.11)
 
 GEM
   remote: https://rubygems.org/
