@@ -14,11 +14,9 @@ $ vagrant reflect
 ==> default: Synchronization completed
 ==> default: Sending change: /lib/something
 ==> default: Synchronization completed
-==> default: Processing removal: /something
-==> default: Performing full synchronisation due to removals
+==> default: Sending removal: /something
 ==> default: Synchronization completed
-==> default: Processing removal: /lib/something
-==> default: Performing full synchronisation due to removals
+==> default: Sending removal: /lib/something
 ==> default: Synchronization completed
 ```
 
