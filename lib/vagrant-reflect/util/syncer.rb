@@ -243,9 +243,11 @@ module VagrantReflect
       loop do
         parent = File.dirname(parent)
         break if parent == '/'
-        unless File.exist?(@hostpath + parent) || dirs.key?(parent)
-          dirs[parent] = @guestpath + parent
-        end
+        next if File.exist?(@hostpath + parent)
+        # Insertion order is maintained so ensure we move repeated paths to
+        # end so they are deleted last
+        dirs.delete parent
+        dirs[parent] = @guestpath + parent
       end
     end
 
