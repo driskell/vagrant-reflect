@@ -28,7 +28,8 @@ $ vagrant reflect
 ## Improvements
 
 * Incremental transfer of file changes, accounting for the majority of a
-developers actions, instead of a full rsync of the entire folder.
+developers actions, instead of a full rsync of the entire folder. This will
+maintain server-side changes.
 * Feedback on what and when is transferred
 * Massively improved OS X performance by using a largely improved alpha version
 of guard/listen (see
@@ -45,4 +46,5 @@ triggers
 ## Known Issues / Limitations
 
 * Only tested on OS X - please feedback for other platforms!
-* Symlinks are treated as files and not followed by the change watcher
+* Symlinks can cause some strange behaviour in some instances due to incomplete
+implementations in both the improved guard/listen code and the incremental rsync
