@@ -1,8 +1,8 @@
 require 'rubygems'
 require 'rubygems/package_task'
 
-# gemspec = Gem::Specification.load('logstash-input-courier.gemspec')
-# Gem::PackageTask.new(gemspec).define
+gemspec = Gem::Specification.load('vagrant-reflect.gemspec')
+Gem::PackageTask.new(gemspec).define
 
 task :default do
   Rake::Task[:deploy].invoke
@@ -20,9 +20,9 @@ task :update do
   end
 end
 
-# task :release => [:package] do
-#   sh "gem push pkg/logstash-input-courier-#{gemspec.version}.gem"
-# end
+task :release => [:package] do
+  sh "gem push pkg/vagrant-reflect-#{gemspec.version}.gem"
+end
 
 task :clean do
   sh 'rm -rf .bundle'

@@ -142,10 +142,12 @@ module VagrantReflect
 
     def init_rsync_command
       # Get the command-line arguments
-      @rsync_command = ['rsync']
-      @rsync_command += Array(@opts[:args]).dup if @opts[:args]
-      @rsync_command ||= [
-        '--verbose', '--archive', '--delete', '-z', '--copy-links']
+      if @opts[:args]
+        @rsync_command = ['rsync'] + Array(@opts[:args]).dup
+      else
+        @rsync_command = [
+          'rsync', '--verbose', '--archive', '--delete', '-z', '--copy-links']
+      end
 
       # On Windows, we have to set a default chmod flag to avoid permission
       # issues
@@ -153,8 +155,7 @@ module VagrantReflect
 
       build_owner_args
 
-      @rsync_command << '-e'
-      @rsync_command << @rsh.join(' ')
+      @rsync_command += ['-e', @rsh.join(' ')]
 
       @excludes.map { |e| @rsync_command += ['--exclude', e] }
     end
