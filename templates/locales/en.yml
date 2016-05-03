@@ -15,9 +15,9 @@ en:
         rsync_auto_path: |-
           Watching: %{path}
         rsync_auto_increment_change: |-
-          Sending change%{time}: %{path}
+          %{time} Sending change: %{path}
         rsync_auto_increment_remove: |-
-          Sending removal%{time}: %{path}
+          %{time} Sending removal: %{path}
         rsync_auto_full_change: |-
           Processing change: %{path}
         rsync_auto_full_remove: |-
@@ -25,7 +25,7 @@ en:
         rsync_auto_full: |-
           Performing full synchronisation due to removals
         rsync_auto_synced: |-
-          Synchronization completed
+          %{time} Synchronization completed
         rsync_communicator_not_ready_callback: |-
           Failed to connect to remote machine. This is usually caused by the
           machine rebooting or being halted. Please make sure the machine is

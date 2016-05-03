@@ -25,6 +25,17 @@ $ vagrant reflect
 
     vagrant plugin install vagrant-reflect
 
+## Usage
+Here is an example Vagrantfile configuration section for Vagrant Reflect:
+```ruby
+Vagrant.configure('2') do |config|
+    # Show sync time next to messages
+    if Vagrant.has_plugin?("vagrant-reflect")
+      config.reflect.show_sync_time = true
+    end
+end
+```
+
 ## Improvements
 
 * Incremental transfer of file changes, accounting for the majority of a

@@ -175,7 +175,9 @@ module VagrantReflect
             send callback, path, path_opts, modified, added, removed
 
             path_opts[:machine].ui.info(
-              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_synced'))
+              I18n.t(
+                'vagrant.plugins.vagrant-reflect.rsync_auto_synced',
+                time: get_time()))
           rescue Vagrant::Errors::MachineGuestNotReady
             # Error communicating to the machine, probably a reload or
             # halt is happening. Just notify the user but don't fail out.
@@ -210,11 +212,6 @@ module VagrantReflect
       end
 
       def sync_incremental(path, path_opts, modified, added, removed)
-        now = ''
-        if path_opts[:machine].config.show_sync_time
-	  now = ' (' + Time.now.strftime("%H:%M:%S") + ')';
-        end
-
         if !modified.empty? || !added.empty?
           # Pass the list of changes to rsync so we quickly synchronise only
           # the changed files instead of the whole folder
@@ -222,7 +219,7 @@ module VagrantReflect
           path_opts[:syncer].sync_incremental(items) do |item|
             path_opts[:machine].ui.info(
               I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_change',
-                     path: item, time: now))
+                     path: item, time: get_time()))
           end
         end
 
@@ -233,7 +230,15 @@ module VagrantReflect
         path_opts[:syncer].sync_removals(items) do |item|
           path_opts[:machine].ui.info(
             I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_remove',
-                   path: item, time: now))
+                   path: item, time: get_time()))
+        end
+      end
+
+      def get_time()
+        with_target_vms(nil, single_target: true) do |vm|
+          if vm.config.reflect.show_sync_time == true
+            return '(' + Time.now.strftime("%H:%M:%S") + ')'
+          end
         end
       end
 
