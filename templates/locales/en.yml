@@ -15,9 +15,9 @@ en:
         rsync_auto_path: |-
           Watching: %{path}
         rsync_auto_increment_change: |-
-          Sending change: %{path}
+          Sending change%{time}: %{path}
         rsync_auto_increment_remove: |-
-          Sending removal: %{path}
+          Sending removal%{time}: %{path}
         rsync_auto_full_change: |-
           Processing change: %{path}
         rsync_auto_full_remove: |-

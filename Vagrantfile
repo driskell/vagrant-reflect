@@ -18,6 +18,10 @@ Vagrant.configure('2') do |config|
     # Uncomment the following to make the VirtualBox console for this VM visible
     # (Good for diagnosing boot issues)
     v.gui = true
+    # Show time with file sent
+    if Vagrant.has_plugin?("vagrant-reflect")
+        v.show_sync_time = true
+    end
   end
 
   # Rsync shared folder for testing

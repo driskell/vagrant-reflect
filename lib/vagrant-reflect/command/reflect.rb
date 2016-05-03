@@ -1,6 +1,7 @@
 require 'log4r'
 require 'optparse'
 require 'thread'
+require 'date'
 
 require 'vagrant/action/builtin/mixin_synced_folders'
 require 'vagrant/util/busy'
@@ -209,6 +210,11 @@ module VagrantReflect
       end
 
       def sync_incremental(path, path_opts, modified, added, removed)
+        now = ''
+        if path_opts[:machine].config.show_sync_time
+	  now = ' (' + Time.now.strftime("%H:%M:%S") + ')';
+        end
+
         if !modified.empty? || !added.empty?
           # Pass the list of changes to rsync so we quickly synchronise only
           # the changed files instead of the whole folder
@@ -216,7 +222,7 @@ module VagrantReflect
           path_opts[:syncer].sync_incremental(items) do |item|
             path_opts[:machine].ui.info(
               I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_change',
-                     path: item))
+                     path: item, time: now))
           end
         end
 
@@ -227,7 +233,7 @@ module VagrantReflect
         path_opts[:syncer].sync_removals(items) do |item|
           path_opts[:machine].ui.info(
             I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_remove',
-                   path: item))
+                   path: item, time: now))
         end
       end
 
