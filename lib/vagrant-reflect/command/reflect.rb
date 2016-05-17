@@ -240,7 +240,7 @@ module VagrantReflect
             return '(' + Time.now.strftime("%H:%M:%S") + ') '
           end
         end
-        
+
         ''
       end
 
