@@ -8,5 +8,10 @@ module VagrantReflect
       require_relative 'command/reflect'
       Command::Reflect
     end
+
+    config 'reflect' do
+      require_relative 'configuration/reflect'
+      Configuration::Reflect
+    end
   end
 end

@@ -25,6 +25,27 @@ $ vagrant reflect
 
     vagrant plugin install vagrant-reflect
 
+## Usage
+
+Vagrant reflect will work with the usual `rsync` shared folder configurations
+and requires no further configuration.
+
+However, there are a few vagrant-reflect specific options you can adjust that
+affect its behaviour. The available options and how to configure them is shown
+below.
+
+*NOTE: Currently, there is only a single option, show_sync_time.*
+
+```ruby
+Vagrant.configure('2') do |config|
+    if Vagrant.has_plugin?("vagrant-reflect")
+      # Show sync time next to messages
+      # Default: false
+      config.reflect.show_sync_time = true
+    end
+end
+```
+
 ## Improvements
 
 * Incremental transfer of file changes, accounting for the majority of a

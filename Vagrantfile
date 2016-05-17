@@ -10,6 +10,11 @@ Vagrant.configure('2') do |config|
   # Bridge with the local network
   config.vm.network :public_network
 
+  # Show sync time next to messages 
+  if Vagrant.has_plugin?("vagrant-reflect")
+    config.reflect.show_sync_time = true
+  end
+
   # Adjust the RAM and CPU count - this can be modified per repository
   config.vm.provider 'virtualbox' do |v|
     # CPU/Memory
