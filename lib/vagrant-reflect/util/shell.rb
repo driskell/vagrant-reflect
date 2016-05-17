@@ -68,7 +68,7 @@ module VagrantReflect
         # Get the command-line arguments
         # TODO: Re-enable customisation of this
         base_rsync = [
-          'rsync', '--verbose', '--archive', '--delete', '-z', '--copy-links']
+          'rsync', '--verbose', '--archive', '--delete', '-z', '--links']
 
         # On Windows, we have to set a default chmod flag to avoid permission
         # issues
