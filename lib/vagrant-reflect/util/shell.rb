@@ -125,8 +125,11 @@ module VagrantReflect
       end
 
       def build_rmdir_command
-        @rmdir_command = @rsh + [
-          @remote, 'xargs rmdir', { workdir: @workdir, notify: :stdin }]
+        # Make this command silent
+        # Sometimes we attempt to remove parent folders that aren't empty yet
+        # on the remote because we didn't yet sync across all of the removals
+        @rmdir_command = @rsh + [@remote, 'xargs -n 1 rmdir 2>/dev/null',
+                                 { workdir: @workdir, notify: :stdin }]
       end
     end # ::Shell
   end # ::Util

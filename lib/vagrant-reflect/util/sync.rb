@@ -31,11 +31,11 @@ module VagrantReflect
         dirs = prepare_items_for_removal(items)
 
         send_items_to_command items, @shell.rm_command, &block
-        sync_removals_parents dirs.values, &block unless dirs.empty?
+        sync_removals_parents dirs.values unless dirs.empty?
       end
 
-      def sync_removals_parents(guest_items, &block)
-        send_items_to_command guest_items, @shell.rmdir_command, &block
+      def sync_removals_parents(guest_items)
+        send_items_to_command guest_items, @shell.rmdir_command
       end
 
       protected
