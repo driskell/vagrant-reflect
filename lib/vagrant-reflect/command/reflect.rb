@@ -171,9 +171,8 @@ module VagrantReflect
             send callback, path, path_opts, modified, added, removed
 
             path_opts[:machine].ui.info(
-              I18n.t(
-                'vagrant.plugins.vagrant-reflect.rsync_auto_synced',
-                time: get_time()))
+              get_sync_time +
+              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_synced'))
           rescue Vagrant::Errors::MachineGuestNotReady
             # Error communicating to the machine, probably a reload or
             # halt is happening. Just notify the user but don't fail out.
@@ -208,14 +207,17 @@ module VagrantReflect
       end
 
       def sync_incremental(path, path_opts, modified, added, removed)
+        sync_time = get_sync_time
+
         if !modified.empty? || !added.empty?
           # Pass the list of changes to rsync so we quickly synchronise only
           # the changed files instead of the whole folder
           items = strip_paths(path, modified + added)
           path_opts[:syncer].sync_incremental(items) do |item|
             path_opts[:machine].ui.info(
+              sync_time +
               I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_change',
-                     path: item, time: get_time()))
+                     path: item))
           end
         end
 
@@ -225,17 +227,21 @@ module VagrantReflect
         items = strip_paths(path, removed)
         path_opts[:syncer].sync_removals(items) do |item|
           path_opts[:machine].ui.info(
+            sync_time +
             I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_remove',
-                   path: item, time: get_time()))
+                   path: item))
         end
       end
 
-      def get_time()
+      def get_sync_time()
+        # TODO: Hold this configuration per machine when we refactor
         with_target_vms(nil, single_target: true) do |vm|
           if vm.config.reflect.show_sync_time == true
-            return '(' + Time.now.strftime("%H:%M:%S") + ')'
+            return '(' + Time.now.strftime("%H:%M:%S") + ') '
           end
         end
+        
+        ''
       end
 
       def strip_paths(path, items)
