@@ -1,3 +1,6 @@
+# THIS IS A PATCHED VERSION OF Vagrant::Util::Subprocess THAT FIXES THE ISSUE
+# REPORTED AT: https://github.com/mitchellh/vagrant/pull/7192
+
 require 'thread'
 
 require 'childprocess'
