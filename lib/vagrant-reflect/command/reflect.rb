@@ -7,7 +7,8 @@ require 'vagrant/action/builtin/mixin_synced_folders'
 require 'vagrant/util/busy'
 require 'vagrant/util/platform'
 
-require_relative '../util/syncer'
+require_relative '../util/excludes'
+require_relative '../util/sync'
 
 require 'driskell-listen'
 
@@ -27,21 +28,9 @@ module VagrantReflect
           poll:        false,
           incremental: true
         }
+
         opts = OptionParser.new do |o|
           o.banner = 'Usage: vagrant reflect [vm-name]'
-          o.separator ''
-          o.separator 'Options:'
-          o.separator ''
-
-          o.on('--[no-]poll', 'Force polling filesystem (slow)') do |poll|
-            options[:poll] = poll
-          end
-          o.on(
-            '--[no-]incremental',
-            'Perform incremental copies of changes where possible (fast)'
-          ) do |incremental|
-            options[:incremental] = incremental
-          end
         end
 
         # Parse the options and return if we don't have any target.
@@ -51,28 +40,8 @@ module VagrantReflect
         # Build up the paths that we need to listen to.
         paths = {}
         with_target_vms(argv) do |machine|
-          if machine.provider.capability?(:proxy_machine)
-            proxy = machine.provider.capability(:proxy_machine)
-            if proxy
-              machine.ui.warn(
-                I18n.t(
-                  'vagrant.plugins.vagrant-reflect.rsync_proxy_machine',
-                  name: machine.name.to_s,
-                  provider: machine.provider_name.to_s))
-
-              machine = proxy
-            end
-          end
-
-          cached = synced_folders(machine, cached: true)
-          fresh  = synced_folders(machine)
-          diff   = synced_folders_diff(cached, fresh)
-          unless diff[:added].empty?
-            machine.ui.warn(
-              I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_new_folders'))
-          end
-
-          folders = cached[:rsync]
+          machine = check_proxy(machine)
+          folders = get_folders(machine)
           next if !folders || folders.empty?
 
           folders.each do |id, folder_opts|
@@ -85,7 +54,7 @@ module VagrantReflect
             folder_opts[:exclude] ||= []
             folder_opts[:exclude] << '.vagrant/'
 
-            syncer = Syncer.new(machine, folder_opts)
+            syncer = Util::Sync.new(machine, folder_opts)
 
             machine.ui.info(
               I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_initial'))
@@ -121,7 +90,7 @@ module VagrantReflect
 
           ignores = []
           opts.each do |path_opts|
-            ignores += path_opts[:syncer].excludes_to_regexp
+            ignores += Util::Excludes.convert(path_opts[:opts][:excludes] || [])
             path_opts[:machine].ui.info(
               I18n.t(
                 'vagrant.plugins.vagrant-reflect.rsync_auto_path',
@@ -157,6 +126,33 @@ module VagrantReflect
         end
 
         0
+      end
+
+      def check_proxy(machine)
+        return machine unless machine.provider.capability?(:proxy_machine)
+
+        proxy = machine.provider.capability(:proxy_machine)
+        return machine unless proxy
+
+        machine.ui.warn(
+          I18n.t(
+            'vagrant.plugins.vagrant-reflect.rsync_proxy_machine',
+            name: machine.name.to_s,
+            provider: machine.provider_name.to_s))
+
+        proxy
+      end
+
+      def get_folders(machine)
+        cached = synced_folders(machine, cached: true)
+        fresh  = synced_folders(machine)
+        diff   = synced_folders_diff(cached, fresh)
+        unless diff[:added].empty?
+          machine.ui.warn(
+            I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_new_folders'))
+        end
+
+        cached[:rsync]
       end
 
       # This is the callback that is called when any changes happen
