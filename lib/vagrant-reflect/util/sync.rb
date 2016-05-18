@@ -12,9 +12,9 @@ module VagrantReflect
 
         init_paths(opts)
 
-        @shell = Shell.new(@machine, @guestpath, @hostpath, opts[:excludes])
+        @shell = Shell.new(@machine, @guestpath, @hostpath, opts[:exclude])
 
-        log_configuration opts[:excludes] || []
+        log_configuration opts[:exclude] || []
       end
 
       def sync_incremental(items, &block)
