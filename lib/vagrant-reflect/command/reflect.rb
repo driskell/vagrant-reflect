@@ -90,7 +90,7 @@ module VagrantReflect
 
           ignores = []
           opts.each do |path_opts|
-            ignores += Util::Excludes.convert(path_opts[:opts][:excludes] || [])
+            ignores += Util::Excludes.convert(path_opts[:opts][:exclude] || [])
             path_opts[:machine].ui.info(
               I18n.t(
                 'vagrant.plugins.vagrant-reflect.rsync_auto_path',
