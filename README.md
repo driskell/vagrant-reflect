@@ -42,6 +42,9 @@ Vagrant.configure('2') do |config|
       # Show sync time next to messages
       # Default: false
       config.reflect.show_sync_time = true
+      # Send notification when sync is completed
+      # Default: false
+      config.reflect.show_notification = true
     end
 end
 ```
@@ -66,6 +69,6 @@ triggers
 
 ## Known Issues / Limitations
 
-* Only tested on OS X - please feedback for other platforms!
+* Tested on OS X and Arch Linux - please feedback for other platforms!
 * Symlinks can cause some strange behaviour in some instances due to incomplete
 implementations in both the improved guard/listen code and the incremental rsync

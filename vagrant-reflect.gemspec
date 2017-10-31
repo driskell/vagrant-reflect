@@ -16,4 +16,5 @@ Gem::Specification.new do |gem|
   gem.files             = Dir['{lib,templates}/**/*']
 
   gem.add_runtime_dependency 'driskell-listen', '~> 3.0.6', '>= 3.0.6.11'
+  gem.add_dependency('ruby-notify-send', '~> 0.0.1')
 end

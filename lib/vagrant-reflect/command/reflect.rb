@@ -11,6 +11,7 @@ require_relative '../util/excludes'
 require_relative '../util/sync'
 
 require 'driskell-listen'
+require 'notify-send'
 
 module VagrantReflect
   module Command
@@ -213,24 +214,41 @@ module VagrantReflect
           # Pass the list of changes to rsync so we quickly synchronise only
           # the changed files instead of the whole folder
           items = strip_paths(path, modified + added)
+          outputPath = ""
           path_opts[:syncer].sync_incremental(items) do |item|
+            outputPath += item
             path_opts[:machine].ui.info(
               sync_time +
               I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_change',
                      path: item))
           end
+          send_notification(outputPath)
         end
 
         return if removed.empty?
 
         # Pass list of changes to a remove command
         items = strip_paths(path, removed)
+        outputPath = ""
         path_opts[:syncer].sync_removals(items) do |item|
+          outputPath += item
           path_opts[:machine].ui.info(
             sync_time +
             I18n.t('vagrant.plugins.vagrant-reflect.rsync_auto_increment_remove',
                    path: item))
         end
+        send_notification(outputPath, title: "Files removed: ")
+      end
+
+      def send_notification(content, title: "Files synced: ", log_level: "info", timeout: 1000)
+        # TODO: Hold this configuration per machine when we refactor
+        with_target_vms(nil, single_target: true) do |vm|
+          if vm.config.reflect.show_notification == true
+            NotifySend.send title, content, log_level, timeout
+          end
+        end
+
+        ''
       end
 
       def get_sync_time()
