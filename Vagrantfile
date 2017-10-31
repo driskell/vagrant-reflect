@@ -10,9 +10,11 @@ Vagrant.configure('2') do |config|
   # Bridge with the local network
   config.vm.network :public_network
 
-  # Show sync time next to messages 
   if Vagrant.has_plugin?("vagrant-reflect")
+    # Show sync time next to messages
     config.reflect.show_sync_time = true
+    # Show notification about file changes
+    config.reflect.show_notification = true
   end
 
   # Adjust the RAM and CPU count - this can be modified per repository
